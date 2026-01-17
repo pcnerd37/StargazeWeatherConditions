@@ -1,0 +1,63 @@
+@using StargazeWeatherConditions.Utilities
+
+<div class="moon-phase-display">
+    <div class="moon-visual">
+        <div class="moon-icon">@GetMoonEmoji()</div>
+    </div>
+    
+    <div class="moon-info">
+        <h3 class="moon-phase-name">@Astronomy.MoonPhase</h3>
+        <p class="moon-illumination">@Astronomy.MoonIlluminationPercent% illuminated</p>
+        
+        <div class="moon-times">
+            @if (Astronomy.Moonrise.HasValue)
+            {
+                <div class="moon-time-item">
+                    <span class="time-label">Moonrise</span>
+                    <span class="time-value">@FormatTime(Astronomy.Moonrise.Value)</span>
+                </div>
+            }
+            @if (Astronomy.Moonset.HasValue)
+            {
+                <div class="moon-time-item">
+                    <span class="time-label">Moonset</span>
+                    <span class="time-value">@FormatTime(Astronomy.Moonset.Value)</span>
+                </div>
+            }
+        </div>
+        
+        <p class="moon-status @(Astronomy.IsMoonUp ? "up" : "down")">
+            Moon is currently @(Astronomy.IsMoonUp ? "above" : "below") the horizon
+        </p>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required AstronomyData Astronomy { get; set; }
+
+    [CascadingParameter]
+    public UserPreferences? Preferences { get; set; }
+
+    private bool Use24Hour => Preferences?.Use24HourTime ?? false;
+
+    private string FormatTime(TimeOnly time)
+        => UnitConverter.FormatTime(time, Use24Hour);
+
+    private string GetMoonEmoji()
+    {
+        // Map moon phase to appropriate emoji
+        return Astronomy.MoonPhase.ToLower() switch
+        {
+            "new moon" => "🌑",
+            "waxing crescent" => "🌒",
+            "first quarter" => "🌓",
+            "waxing gibbous" => "🌔",
+            "full moon" => "🌕",
+            "waning gibbous" => "🌖",
+            "last quarter" or "third quarter" => "🌗",
+            "waning crescent" => "🌘",
+            _ => "🌙"
+        };
+    }
+}

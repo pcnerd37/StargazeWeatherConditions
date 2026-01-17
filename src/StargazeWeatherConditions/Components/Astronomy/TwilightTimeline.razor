@@ -1,0 +1,95 @@
+@using StargazeWeatherConditions.Utilities
+
+<div class="twilight-timeline">
+    <h3 class="timeline-title">Twilight Timeline</h3>
+    
+    <div class="timeline-container">
+        <div class="timeline-phases">
+            @* Daylight to Civil Twilight *@
+            <div class="phase daylight">
+                <div class="phase-bar"></div>
+                <span class="phase-label">Day</span>
+            </div>
+            
+            @* Civil Twilight *@
+            <div class="phase civil-twilight">
+                <div class="phase-bar"></div>
+                <div class="phase-time">@FormatTime(Times.Sunset)</div>
+                <span class="phase-label">Civil</span>
+            </div>
+            
+            @* Nautical Twilight *@
+            <div class="phase nautical-twilight">
+                <div class="phase-bar"></div>
+                <div class="phase-time">@FormatTime(Times.CivilDusk)</div>
+                <span class="phase-label">Nautical</span>
+            </div>
+            
+            @* Astronomical Twilight *@
+            <div class="phase astronomical-twilight">
+                <div class="phase-bar"></div>
+                <div class="phase-time">@FormatTime(Times.NauticalDusk)</div>
+                <span class="phase-label">Astronomical</span>
+            </div>
+            
+            @* True Night / Optimal Viewing *@
+            <div class="phase true-night">
+                <div class="phase-bar"></div>
+                <div class="phase-time">@FormatTime(Times.AstronomicalDusk)</div>
+                <span class="phase-label">True Night ★</span>
+            </div>
+            
+            @* Morning Astronomical Twilight *@
+            <div class="phase astronomical-twilight">
+                <div class="phase-bar"></div>
+                <div class="phase-time">@FormatTime(Times.AstronomicalDawn)</div>
+                <span class="phase-label">Astronomical</span>
+            </div>
+            
+            @* Morning Nautical Twilight *@
+            <div class="phase nautical-twilight">
+                <div class="phase-bar"></div>
+                <div class="phase-time">@FormatTime(Times.NauticalDawn)</div>
+                <span class="phase-label">Nautical</span>
+            </div>
+            
+            @* Morning Civil Twilight *@
+            <div class="phase civil-twilight">
+                <div class="phase-bar"></div>
+                <div class="phase-time">@FormatTime(Times.CivilDawn)</div>
+                <span class="phase-label">Civil</span>
+            </div>
+            
+            @* Morning Daylight *@
+            <div class="phase daylight">
+                <div class="phase-bar"></div>
+                <div class="phase-time">@FormatTime(Times.Sunrise)</div>
+                <span class="phase-label">Day</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="viewing-window">
+        <span class="window-icon">🔭</span>
+        <span class="window-text">
+            Optimal viewing: @FormatDuration(Times.OptimalViewingDuration)
+            (@FormatTime(Times.AstronomicalDusk) - @FormatTime(Times.AstronomicalDawn))
+        </span>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required TwilightTimes Times { get; set; }
+
+    [CascadingParameter]
+    public UserPreferences? Preferences { get; set; }
+
+    private bool Use24Hour => Preferences?.Use24HourTime ?? false;
+
+    private string FormatTime(DateTime time)
+        => UnitConverter.FormatTime(time, Use24Hour);
+
+    private string FormatDuration(TimeSpan duration)
+        => UnitConverter.FormatDuration(duration);
+}

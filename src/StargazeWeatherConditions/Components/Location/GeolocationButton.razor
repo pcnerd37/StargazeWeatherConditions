@@ -1,0 +1,105 @@
+@inject ILocationService LocationService
+@inject IWeatherApiService WeatherApiService
+
+<button class="btn-icon geolocation-btn @(_isLoading ? "loading" : "")"
+        @onclick="@GetCurrentLocation"
+        disabled="@_isLoading"
+        title="Use my current location"
+        aria-label="Get current location">
+    @if (_isLoading)
+    {
+        <span class="spinner"></span>
+    }
+    else
+    {
+        <span class="icon">📍</span>
+    }
+</button>
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="geolocation-error" role="alert">
+        @_errorMessage
+    </div>
+}
+
+@code {
+    [Parameter]
+    public EventCallback<LocationInfo> OnLocationFound { get; set; }
+
+    private bool _isLoading;
+    private string? _errorMessage;
+
+    private async Task GetCurrentLocation()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await LocationService.GetCurrentPositionAsync();
+            
+            if (result.Success && result.Latitude.HasValue && result.Longitude.HasValue)
+            {
+                // Reverse geocode to get location name
+                var location = await GetLocationName(result.Latitude.Value, result.Longitude.Value);
+                
+                if (location is not null)
+                {
+                    await OnLocationFound.InvokeAsync(location);
+                }
+                else
+                {
+                    _errorMessage = "Could not determine location name.";
+                }
+            }
+            else
+            {
+                _errorMessage = result.Error ?? "Could not get current location.";
+            }
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Failed to get current location. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task<LocationInfo?> GetLocationName(double latitude, double longitude)
+    {
+        try
+        {
+            var query = $"{latitude:F4},{longitude:F4}";
+            var results = await WeatherApiService.SearchLocationsAsync(query);
+            
+            if (results.Any())
+            {
+                var first = results[0];
+                return new LocationInfo
+                {
+                    Name = first.Name,
+                    Region = first.Region,
+                    Country = first.Country,
+                    Latitude = latitude,
+                    Longitude = longitude
+                };
+            }
+
+            // Fallback - use coordinates as name
+            return new LocationInfo
+            {
+                Name = $"{latitude:F2}°, {longitude:F2}°",
+                Latitude = latitude,
+                Longitude = longitude
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+}

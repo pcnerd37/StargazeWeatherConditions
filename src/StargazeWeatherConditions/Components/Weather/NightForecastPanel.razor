@@ -1,0 +1,113 @@
+@using StargazeWeatherConditions.Utilities
+
+<div class="night-forecast-panel">
+    <header class="panel-header">
+        <h2 class="panel-title">
+            <span class="date-icon">🌙</span>
+            @FormatNightTitle()
+        </h2>
+        @if (Recommendation is not null)
+        {
+            <div class="overall-rating rating-@Recommendation.Rating.ToString().ToLower()">
+                <span class="rating-score">@Recommendation.OverallScore.ToString("F0")</span>
+                <span class="rating-label">@Recommendation.Rating</span>
+            </div>
+        }
+    </header>
+
+    @if (Recommendation is not null)
+    {
+        <div class="recommendation-summary">
+            <p>@Recommendation.Summary</p>
+        </div>
+    }
+
+    <div class="astronomy-summary">
+        @if (Astronomy is not null)
+        {
+            <div class="astro-item">
+                <span class="astro-icon">🌅</span>
+                <span class="astro-label">Sunset</span>
+                <span class="astro-value">@FormatTime(Astronomy.Sunset)</span>
+            </div>
+            <div class="astro-item">
+                <span class="astro-icon">🌄</span>
+                <span class="astro-label">Sunrise</span>
+                <span class="astro-value">@FormatTime(Astronomy.Sunrise)</span>
+            </div>
+            <div class="astro-item">
+                <span class="astro-icon">🌙</span>
+                <span class="astro-label">@Astronomy.MoonPhase</span>
+                <span class="astro-value">@Astronomy.MoonIlluminationPercent% illuminated</span>
+            </div>
+        }
+    </div>
+
+    @if (TwilightTimes is not null)
+    {
+        <TwilightTimeline Times="@TwilightTimes" />
+    }
+
+    <div class="hourly-forecast-grid">
+        @foreach (var hour in NightHours)
+        {
+            <HourlyForecastCard 
+                Hour="@hour"
+                IsNightHour="true"
+                IsOptimalHour="@IsOptimalHour(hour)" />
+        }
+    </div>
+
+    @if (!NightHours.Any())
+    {
+        <div class="no-data-message">
+            <p>No nighttime forecast data available for this date.</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required DateOnly Date { get; set; }
+
+    [Parameter, EditorRequired]
+    public required IReadOnlyList<HourlyCondition> NightHours { get; set; }
+
+    [Parameter]
+    public AstronomyData? Astronomy { get; set; }
+
+    [Parameter]
+    public TwilightTimes? TwilightTimes { get; set; }
+
+    [Parameter]
+    public Recommendation? Recommendation { get; set; }
+
+    [CascadingParameter]
+    public UserPreferences? Preferences { get; set; }
+
+    private bool Use24Hour => Preferences?.Use24HourTime ?? false;
+
+    private string FormatNightTitle()
+    {
+        var tonight = DateOnly.FromDateTime(DateTime.Now);
+        var tomorrow = tonight.AddDays(1);
+
+        if (Date == tonight)
+            return "Tonight";
+        if (Date == tomorrow)
+            return "Tomorrow Night";
+
+        return Date.ToString("dddd, MMM d");
+    }
+
+    private string FormatTime(TimeOnly time)
+        => UnitConverter.FormatTime(time, Use24Hour);
+
+    private bool IsOptimalHour(HourlyCondition hour)
+    {
+        if (Recommendation is null) return false;
+        
+        // Consider hours with low cloud cover during astronomical twilight as optimal
+        return hour.CloudCoverPercent <= 20 && !hour.IsDay;
+    }
+}

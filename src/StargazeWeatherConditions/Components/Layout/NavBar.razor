@@ -1,0 +1,20 @@
+@inject IPreferencesService PreferencesService
+
+<nav class="navbar">
+    <div class="navbar-brand">
+        <span class="navbar-icon">🌟</span>
+        <span class="navbar-title">StarGaze</span>
+    </div>
+    
+    <div class="navbar-actions">
+        <ThemeToggle />
+        <button class="btn-icon" @onclick="@OnSettingsClick" aria-label="Settings">
+            <span class="icon">⚙️</span>
+        </button>
+    </div>
+</nav>
+
+@code {
+    [Parameter]
+    public EventCallback OnSettingsClick { get; set; }
+}

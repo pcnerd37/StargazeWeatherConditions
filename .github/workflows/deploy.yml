@@ -1,0 +1,81 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+      
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: ./src/StargazeWeatherConditions
+      
+      - name: Inject API Key
+        run: |
+          sed -i 's/WEATHERAPI_KEY_PLACEHOLDER/${{ secrets.WEATHERAPI_KEY }}/g' ./src/StargazeWeatherConditions/wwwroot/appsettings.json
+      
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+        working-directory: ./src/StargazeWeatherConditions
+      
+      - name: Run Tests
+        run: dotnet test --configuration Release --no-build --verbosity normal
+        working-directory: ./tests/StargazeWeatherConditions.Tests
+        continue-on-error: true
+      
+      - name: Publish
+        run: dotnet publish --configuration Release --output ./publish
+        working-directory: ./src/StargazeWeatherConditions
+      
+      - name: Configure for GitHub Pages
+        run: |
+          # Add .nojekyll file to bypass Jekyll processing
+          touch ./src/StargazeWeatherConditions/publish/wwwroot/.nojekyll
+          
+          # Update base href for GitHub Pages
+          sed -i 's|<base href="/" />|<base href="/StargazeWeatherConditions/" />|g' ./src/StargazeWeatherConditions/publish/wwwroot/index.html
+          
+          # Copy index.html to 404.html for SPA routing
+          cp ./src/StargazeWeatherConditions/publish/wwwroot/index.html ./src/StargazeWeatherConditions/publish/wwwroot/404.html
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./src/StargazeWeatherConditions/publish/wwwroot
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

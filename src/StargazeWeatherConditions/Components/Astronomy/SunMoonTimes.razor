@@ -1,0 +1,69 @@
+@using StargazeWeatherConditions.Utilities
+
+<div class="sun-moon-times">
+    <div class="times-group sun-times">
+        <h4 class="times-title">
+            <span class="times-icon">☀️</span>
+            Sun
+        </h4>
+        <div class="times-row">
+            <div class="time-item">
+                <span class="time-label">Rise</span>
+                <span class="time-value">@FormatTime(Astronomy.Sunrise)</span>
+            </div>
+            <div class="time-item">
+                <span class="time-label">Set</span>
+                <span class="time-value">@FormatTime(Astronomy.Sunset)</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="times-group moon-times">
+        <h4 class="times-title">
+            <span class="times-icon">🌙</span>
+            Moon (@Astronomy.MoonPhase)
+        </h4>
+        <div class="times-row">
+            @if (Astronomy.Moonrise.HasValue)
+            {
+                <div class="time-item">
+                    <span class="time-label">Rise</span>
+                    <span class="time-value">@FormatTime(Astronomy.Moonrise.Value)</span>
+                </div>
+            }
+            @if (Astronomy.Moonset.HasValue)
+            {
+                <div class="time-item">
+                    <span class="time-label">Set</span>
+                    <span class="time-value">@FormatTime(Astronomy.Moonset.Value)</span>
+                </div>
+            }
+            @if (!Astronomy.Moonrise.HasValue && !Astronomy.Moonset.HasValue)
+            {
+                <div class="time-item">
+                    <span class="time-label">@(Astronomy.IsMoonUp ? "Always visible" : "Not visible")</span>
+                </div>
+            }
+        </div>
+        <div class="moon-illumination">
+            <span class="illumination-label">Illumination:</span>
+            <div class="illumination-bar">
+                <div class="illumination-fill" style="width: @Astronomy.MoonIlluminationPercent%"></div>
+            </div>
+            <span class="illumination-value">@Astronomy.MoonIlluminationPercent%</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required AstronomyData Astronomy { get; set; }
+
+    [CascadingParameter]
+    public UserPreferences? Preferences { get; set; }
+
+    private bool Use24Hour => Preferences?.Use24HourTime ?? false;
+
+    private string FormatTime(TimeOnly time)
+        => UnitConverter.FormatTime(time, Use24Hour);
+}

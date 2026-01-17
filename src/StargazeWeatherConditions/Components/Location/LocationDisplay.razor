@@ -1,0 +1,34 @@
+<div class="location-display">
+    <span class="location-icon">📍</span>
+    <div class="location-details">
+        <span class="location-name">@Location.Name</span>
+        @if (!string.IsNullOrEmpty(Location.Region) || !string.IsNullOrEmpty(Location.Country))
+        {
+            <span class="location-region">
+                @if (!string.IsNullOrEmpty(Location.Region))
+                {
+                    @Location.Region
+                }
+                @if (!string.IsNullOrEmpty(Location.Region) && !string.IsNullOrEmpty(Location.Country))
+                {
+                    <text>, </text>
+                }
+                @Location.Country
+            </span>
+        }
+        @if (ShowCoordinates)
+        {
+            <span class="location-coords">
+                @Location.Latitude.ToString("F4")°, @Location.Longitude.ToString("F4")°
+            </span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required LocationInfo Location { get; set; }
+
+    [Parameter]
+    public bool ShowCoordinates { get; set; }
+}

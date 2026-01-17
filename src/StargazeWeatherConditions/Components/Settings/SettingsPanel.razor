@@ -1,0 +1,96 @@
+@inject IPreferencesService PreferencesService
+
+<div class="settings-overlay" @onclick="@OnClose">
+    <div class="settings-panel" @onclick:stopPropagation="true">
+        <header class="settings-header">
+            <h2>Settings</h2>
+            <button class="btn-icon" @onclick="@OnClose" aria-label="Close settings">
+                <span class="icon">✕</span>
+            </button>
+        </header>
+
+        <div class="settings-content">
+            <section class="settings-section">
+                <h3>Appearance</h3>
+                <div class="setting-item">
+                    <label for="theme-toggle">Dark Theme</label>
+                    <input type="checkbox" 
+                           id="theme-toggle" 
+                           checked="@_preferences.IsDarkTheme"
+                           @onchange="@(e => UpdatePreference(p => p with { IsDarkTheme = (bool)(e.Value ?? false) }))" />
+                </div>
+            </section>
+
+            <section class="settings-section">
+                <h3>Units</h3>
+                <div class="setting-item">
+                    <label for="metric-toggle">Use Metric Units</label>
+                    <input type="checkbox" 
+                           id="metric-toggle"
+                           checked="@_preferences.UseMetricUnits"
+                           @onchange="@(e => UpdatePreference(p => p with { UseMetricUnits = (bool)(e.Value ?? false) }))" />
+                </div>
+                <div class="setting-item">
+                    <label for="24hr-toggle">Use 24-Hour Time</label>
+                    <input type="checkbox" 
+                           id="24hr-toggle"
+                           checked="@_preferences.Use24HourTime"
+                           @onchange="@(e => UpdatePreference(p => p with { Use24HourTime = (bool)(e.Value ?? false) }))" />
+                </div>
+            </section>
+
+            <section class="settings-section">
+                <h3>API Configuration</h3>
+                <div class="setting-item column">
+                    <label for="api-key">Custom WeatherAPI Key (Optional)</label>
+                    <input type="password" 
+                           id="api-key"
+                           placeholder="Enter your API key"
+                           value="@_customApiKey"
+                           @onchange="@OnApiKeyChanged" />
+                    <small class="help-text">
+                        Leave blank to use the default shared key. 
+                        Get your own key at <a href="https://www.weatherapi.com/" target="_blank" rel="noopener">weatherapi.com</a>
+                    </small>
+                </div>
+            </section>
+        </div>
+
+        <footer class="settings-footer">
+            <button class="btn btn-primary" @onclick="@OnClose">Done</button>
+        </footer>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public EventCallback<UserPreferences> OnPreferencesChanged { get; set; }
+
+    [CascadingParameter]
+    public UserPreferences? Preferences { get; set; }
+
+    private UserPreferences _preferences = new();
+    private string? _customApiKey;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _preferences = Preferences ?? new UserPreferences();
+        _customApiKey = await PreferencesService.GetCustomApiKeyAsync();
+    }
+
+    private async Task UpdatePreference(Func<UserPreferences, UserPreferences> update)
+    {
+        _preferences = update(_preferences);
+        await OnPreferencesChanged.InvokeAsync(_preferences);
+    }
+
+    private async Task OnApiKeyChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        _customApiKey = string.IsNullOrWhiteSpace(value) ? null : value;
+        await PreferencesService.SetCustomApiKeyAsync(_customApiKey);
+    }
+}

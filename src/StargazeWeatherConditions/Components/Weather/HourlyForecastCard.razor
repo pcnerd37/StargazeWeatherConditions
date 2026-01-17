@@ -1,0 +1,109 @@
+@using StargazeWeatherConditions.Utilities
+
+<div class="hourly-card @GetCardClass()">
+    <div class="hour-time">@FormatTime(Hour.Time)</div>
+    
+    <div class="weather-icon-container">
+        <img src="@Hour.Condition.IconUrl" alt="@Hour.Condition.Text" class="weather-icon" loading="lazy" />
+    </div>
+    
+    <div class="temperature">@FormatTemperature()</div>
+    
+    <div class="condition-details">
+        <div class="detail-row">
+            <span class="detail-icon" title="Cloud Cover">☁️</span>
+            <div class="progress-bar">
+                <div class="progress" style="width: @Hour.CloudCoverPercent%; --progress-color: @GetCloudColor()"></div>
+            </div>
+            <span class="detail-value">@Hour.CloudCoverPercent%</span>
+        </div>
+        
+        <div class="detail-row">
+            <span class="detail-icon" title="Humidity">💧</span>
+            <div class="progress-bar">
+                <div class="progress" style="width: @Hour.HumidityPercent%; --progress-color: @GetHumidityColor()"></div>
+            </div>
+            <span class="detail-value">@Hour.HumidityPercent%</span>
+        </div>
+        
+        <div class="detail-row">
+            <span class="detail-icon" title="Wind">💨</span>
+            <span class="detail-text">@FormatWind() @Hour.WindDirection</span>
+        </div>
+        
+        <div class="detail-row">
+            <span class="detail-icon" title="Visibility">👁️</span>
+            <span class="detail-text">@FormatVisibility()</span>
+        </div>
+    </div>
+    
+    @if (Hour.ChanceOfRainPercent > 0)
+    {
+        <div class="rain-chance">
+            <span class="rain-icon">🌧️</span>
+            <span>@Hour.ChanceOfRainPercent%</span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required HourlyCondition Hour { get; set; }
+
+    [Parameter]
+    public bool IsOptimalHour { get; set; }
+
+    [Parameter]
+    public bool IsNightHour { get; set; }
+
+    [CascadingParameter]
+    public UserPreferences? Preferences { get; set; }
+
+    private bool UseMetric => Preferences?.UseMetricUnits ?? false;
+    private bool Use24Hour => Preferences?.Use24HourTime ?? false;
+
+    private string GetCardClass()
+    {
+        var classes = new List<string>();
+        
+        if (IsOptimalHour) classes.Add("optimal");
+        if (IsNightHour) classes.Add("night");
+        if (!Hour.IsDay) classes.Add("dark");
+        
+        return string.Join(" ", classes);
+    }
+
+    private string FormatTime(DateTime time)
+        => UnitConverter.FormatTime(time, Use24Hour);
+
+    private string FormatTemperature()
+        => UnitConverter.FormatTemperature(Hour.TemperatureCelsius, UseMetric);
+
+    private string FormatWind()
+        => UnitConverter.FormatSpeed(Hour.WindSpeedKph, UseMetric);
+
+    private string FormatVisibility()
+        => UnitConverter.FormatDistance(Hour.VisibilityKm, UseMetric);
+
+    private string GetCloudColor()
+    {
+        return Hour.CloudCoverPercent switch
+        {
+            <= 20 => "var(--color-excellent)",
+            <= 40 => "var(--color-good)",
+            <= 60 => "var(--color-fair)",
+            _ => "var(--color-poor)"
+        };
+    }
+
+    private string GetHumidityColor()
+    {
+        return Hour.HumidityPercent switch
+        {
+            <= 50 => "var(--color-excellent)",
+            <= 70 => "var(--color-good)",
+            <= 85 => "var(--color-fair)",
+            _ => "var(--color-poor)"
+        };
+    }
+}

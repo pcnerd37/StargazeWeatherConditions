@@ -1,0 +1,37 @@
+<div class="error-display @(Recoverable ? "recoverable" : "")">
+    <div class="error-icon">@Icon</div>
+    <h3 class="error-title">@Title</h3>
+    <p class="error-message">@Message</p>
+    
+    @if (Recoverable)
+    {
+        <button class="btn btn-primary" @onclick="@OnRetry">
+            @RetryText
+        </button>
+    }
+    
+    @ChildContent
+</div>
+
+@code {
+    [Parameter]
+    public string Icon { get; set; } = "⚠️";
+
+    [Parameter]
+    public string Title { get; set; } = "Something went wrong";
+
+    [Parameter]
+    public string Message { get; set; } = "An unexpected error occurred.";
+
+    [Parameter]
+    public bool Recoverable { get; set; } = true;
+
+    [Parameter]
+    public string RetryText { get; set; } = "Try Again";
+
+    [Parameter]
+    public EventCallback OnRetry { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

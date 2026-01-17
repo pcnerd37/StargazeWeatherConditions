@@ -1,0 +1,81 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject IPreferencesService PreferencesService
+
+<CascadingValue Value="@_preferences">
+    <div class="app-container" data-theme="@(_preferences?.IsDarkTheme == true ? "dark" : "light")">
+        <NavBar OnSettingsClick="@ToggleSettings" />
+        
+        <main class="main-content">
+            @Body
+        </main>
+
+        <Footer />
+
+        @if (_showSettings)
+        {
+            <SettingsPanel 
+                OnClose="@ToggleSettings" 
+                OnPreferencesChanged="@OnPreferencesChanged" />
+        }
+    </div>
+</CascadingValue>
+
+@code {
+    private UserPreferences? _preferences;
+    private bool _showSettings;
+    private bool _initialized;
+
+    protected override void OnInitialized()
+    {
+        // Set default preferences immediately to avoid null during first render
+        _preferences = new UserPreferences
+        {
+            IsDarkTheme = true,
+            UseMetricUnits = false,
+            Use24HourTime = false
+        };
+        PreferencesService.PreferencesChanged += OnPreferencesChangedExternal;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            try
+            {
+                _preferences = await PreferencesService.GetPreferencesAsync();
+                StateHasChanged();
+            }
+            catch
+            {
+                // Ignore errors during initialization
+            }
+        }
+    }
+
+    private void ToggleSettings()
+    {
+        _showSettings = !_showSettings;
+        StateHasChanged();
+    }
+
+    private async Task OnPreferencesChanged(UserPreferences newPreferences)
+    {
+        _preferences = newPreferences;
+        await PreferencesService.SavePreferencesAsync(newPreferences);
+        StateHasChanged();
+    }
+
+    private void OnPreferencesChangedExternal(object? sender, UserPreferences e)
+    {
+        _preferences = e;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        PreferencesService.PreferencesChanged -= OnPreferencesChangedExternal;
+    }
+}

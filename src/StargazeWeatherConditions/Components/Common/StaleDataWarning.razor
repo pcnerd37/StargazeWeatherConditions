@@ -1,0 +1,32 @@
+@using StargazeWeatherConditions.Utilities
+
+<div class="stale-data-warning" role="alert">
+    <span class="warning-icon">⚠️</span>
+    <div class="warning-content">
+        <p class="warning-title">Showing cached data</p>
+        <p class="warning-message">
+            Last updated @FormatRelativeTime(CacheTimestamp). 
+            Weather conditions may have changed.
+        </p>
+    </div>
+    @if (ShowRefresh)
+    {
+        <button class="btn btn-sm" @onclick="@OnRefresh">
+            Refresh
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public DateTime CacheTimestamp { get; set; }
+
+    [Parameter]
+    public bool ShowRefresh { get; set; } = true;
+
+    [Parameter]
+    public EventCallback OnRefresh { get; set; }
+
+    private string FormatRelativeTime(DateTime time)
+        => UnitConverter.FormatRelativeTime(time);
+}

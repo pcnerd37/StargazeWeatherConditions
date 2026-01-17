@@ -1,0 +1,218 @@
+@inject ILocationService LocationService
+@inject IWeatherApiService WeatherApiService
+
+<div class="location-search">
+    <div class="search-input-container">
+        <input type="text"
+               class="search-input"
+               placeholder="Enter city, zip code, or coordinates..."
+               value="@_searchQuery"
+               @oninput="@OnSearchInput"
+               @onkeydown="@OnKeyDown"
+               @onfocus="@(() => _showSuggestions = _suggestions.Any())"
+               aria-label="Search location" />
+        
+        <GeolocationButton OnLocationFound="@OnGeolocationFound" />
+        
+        @if (_isLoading)
+        {
+            <div class="search-spinner"></div>
+        }
+    </div>
+    
+    @if (_showSuggestions && _suggestions.Any())
+    {
+        <ul class="suggestions-list" role="listbox">
+            @foreach (var (suggestion, index) in _suggestions.Select((s, i) => (s, i)))
+            {
+                <li class="suggestion-item @(index == _selectedIndex ? "selected" : "")"
+                    role="option"
+                    @onclick="@(() => SelectLocation(suggestion))">
+                    <span class="suggestion-name">@suggestion.Name</span>
+                    @if (!string.IsNullOrEmpty(suggestion.Region))
+                    {
+                        <span class="suggestion-region">, @suggestion.Region</span>
+                    }
+                    <span class="suggestion-country">@suggestion.Country</span>
+                </li>
+            }
+        </ul>
+    }
+    
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="search-error" role="alert">
+            @_errorMessage
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<LocationInfo> OnLocationSelected { get; set; }
+
+    private string _searchQuery = "";
+    private List<LocationSearchResult> _suggestions = [];
+    private bool _showSuggestions;
+    private bool _isLoading;
+    private string? _errorMessage;
+    private int _selectedIndex = -1;
+    private CancellationTokenSource? _debounceTokenSource;
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            try
+            {
+                // Load previously used location
+                var lastLocation = await LocationService.GetLastLocationAsync();
+                if (lastLocation is not null)
+                {
+                    _searchQuery = lastLocation.Name;
+                    StateHasChanged();
+                }
+            }
+            catch
+            {
+                // Ignore errors during initialization
+            }
+        }
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        _searchQuery = e.Value?.ToString() ?? "";
+        _errorMessage = null;
+        _selectedIndex = -1;
+
+        if (string.IsNullOrWhiteSpace(_searchQuery) || _searchQuery.Length < 2)
+        {
+            _suggestions.Clear();
+            _showSuggestions = false;
+            return;
+        }
+
+        // Debounce search requests
+        _debounceTokenSource?.Cancel();
+        _debounceTokenSource = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(300, _debounceTokenSource.Token);
+            await SearchLocations();
+        }
+        catch (TaskCanceledException)
+        {
+            // Debounced - ignore
+        }
+    }
+
+    private async Task SearchLocations()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var results = await WeatherApiService.SearchLocationsAsync(_searchQuery);
+            _suggestions = results.ToList();
+            _showSuggestions = _suggestions.Any();
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Unable to search locations. Please try again.";
+            _suggestions.Clear();
+            _showSuggestions = false;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                if (_suggestions.Any())
+                {
+                    _selectedIndex = Math.Min(_selectedIndex + 1, _suggestions.Count - 1);
+                }
+                break;
+
+            case "ArrowUp":
+                if (_suggestions.Any())
+                {
+                    _selectedIndex = Math.Max(_selectedIndex - 1, 0);
+                }
+                break;
+
+            case "Enter":
+                if (_selectedIndex >= 0 && _selectedIndex < _suggestions.Count)
+                {
+                    await SelectLocation(_suggestions[_selectedIndex]);
+                }
+                else if (!string.IsNullOrWhiteSpace(_searchQuery))
+                {
+                    await SearchAndSelectFirst();
+                }
+                break;
+
+            case "Escape":
+                _showSuggestions = false;
+                break;
+        }
+    }
+
+    private async Task SearchAndSelectFirst()
+    {
+        if (!_suggestions.Any())
+        {
+            await SearchLocations();
+        }
+
+        if (_suggestions.Any())
+        {
+            await SelectLocation(_suggestions[0]);
+        }
+    }
+
+    private async Task SelectLocation(LocationSearchResult suggestion)
+    {
+        var location = new LocationInfo
+        {
+            Name = suggestion.Name,
+            Region = suggestion.Region,
+            Country = suggestion.Country,
+            Latitude = suggestion.Latitude,
+            Longitude = suggestion.Longitude
+        };
+
+        _searchQuery = suggestion.Name;
+        _showSuggestions = false;
+        _suggestions.Clear();
+
+        await LocationService.SaveLastLocationAsync(location);
+        await OnLocationSelected.InvokeAsync(location);
+    }
+
+    private async Task OnGeolocationFound(LocationInfo location)
+    {
+        _searchQuery = location.Name;
+        _showSuggestions = false;
+        _errorMessage = null;
+
+        await LocationService.SaveLastLocationAsync(location);
+        await OnLocationSelected.InvokeAsync(location);
+    }
+
+    public void Dispose()
+    {
+        _debounceTokenSource?.Cancel();
+        _debounceTokenSource?.Dispose();
+    }
+}

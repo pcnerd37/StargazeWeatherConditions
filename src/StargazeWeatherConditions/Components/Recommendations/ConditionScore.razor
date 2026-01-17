@@ -1,0 +1,40 @@
+<div class="condition-score">
+    <div class="score-header">
+        <span class="factor-name">@Factor.FactorName</span>
+        <span class="factor-value">@FormatValue()</span>
+    </div>
+    
+    <div class="score-bar-container">
+        <div class="score-bar" style="width: @Factor.Score%; --score-color: @GetScoreColor()">
+        </div>
+    </div>
+    
+    <div class="score-footer">
+        <span class="factor-label">@Factor.Label</span>
+        <span class="factor-score">@Factor.Score.ToString("F0")/100</span>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required FactorScore Factor { get; set; }
+
+    private string FormatValue()
+    {
+        if (Factor.Unit == "Bortle")
+            return $"Bortle {Factor.RawValue:F0}";
+        
+        if (Factor.Unit == "%")
+            return $"{Factor.RawValue:F0}%";
+        
+        return $"{Factor.RawValue:F1} {Factor.Unit}";
+    }
+
+    private string GetScoreColor() => Factor.Score switch
+    {
+        >= 85 => "var(--color-excellent)",
+        >= 70 => "var(--color-good)",
+        >= 50 => "var(--color-fair)",
+        _ => "var(--color-poor)"
+    };
+}

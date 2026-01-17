@@ -1,0 +1,22 @@
+@inject IPreferencesService PreferencesService
+
+<button class="btn-icon theme-toggle" 
+        @onclick="@ToggleTheme" 
+        aria-label="@(_isDarkTheme ? "Switch to light theme" : "Switch to dark theme")">
+    <span class="icon">@(_isDarkTheme ? "☀️" : "🌙")</span>
+</button>
+
+@code {
+    [CascadingParameter]
+    public UserPreferences? Preferences { get; set; }
+
+    private bool _isDarkTheme => Preferences?.IsDarkTheme ?? true;
+
+    private async Task ToggleTheme()
+    {
+        if (Preferences is null) return;
+
+        var newPreferences = Preferences with { IsDarkTheme = !_isDarkTheme };
+        await PreferencesService.SavePreferencesAsync(newPreferences);
+    }
+}

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="StarGaze Weather Conditions - Your guide to optimal stargazing and astrophotography conditions" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>StarGaze Weather Conditions</title>
+    <base href="/" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌟</text></svg>" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="css/themes.css" rel="stylesheet" />
+</head>
+
+<body>
+    <div id="app">
+        <div class="loading-screen">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <h1>StarGaze</h1>
+                <p>Loading weather conditions...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui" class="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <script src="_framework/blazor.webassembly.js" autostart="false"></script>
+    <script>
+        // Log Blazor errors to console
+        window.addEventListener('error', function(e) {
+            console.error('Window error:', e.error);
+        });
+        
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('Unhandled rejection:', e.reason);
+        });
+        
+        // Geolocation helper function
+        window.getGeolocation = function() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    resolve({ success: false, error: 'Geolocation not supported' });
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    position => resolve({
+                        success: true,
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    }),
+                    error => resolve({
+                        success: false,
+                        error: error.message
+                    }),
+                    { timeout: 10000 }
+                );
+            });
+        };
+
+        // Check for system dark mode preference on initial load
+        (function() {
+            const savedTheme = localStorage.getItem('user-preferences');
+            if (savedTheme) {
+                try {
+                    const prefs = JSON.parse(savedTheme);
+                    if (prefs.IsDarkTheme !== undefined) {
+                        document.documentElement.setAttribute('data-theme', prefs.IsDarkTheme ? 'dark' : 'light');
+                        return;
+                    }
+                } catch (e) {}
+            }
+            // Default to system preference
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+        
+        // Start Blazor
+        Blazor.start().catch(function(error) {
+            console.error('Blazor start error:', error);
+        });
+    </script>
+</body>
+
+</html>

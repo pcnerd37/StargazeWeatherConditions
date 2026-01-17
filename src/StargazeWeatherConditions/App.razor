@@ -1,0 +1,32 @@
+<ErrorBoundary @ref="_errorBoundary">
+    <ChildContent>
+        <Router AppAssembly="@typeof(App).Assembly">
+            <Found Context="routeData">
+                <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+            </Found>
+            <NotFound>
+                <PageTitle>Not found</PageTitle>
+                <LayoutView Layout="@typeof(MainLayout)">
+                    <div class="not-found">
+                        <h1>404</h1>
+                        <p>Sorry, there's nothing at this address.</p>
+                        <a href="/">Go Home</a>
+                    </div>
+                </LayoutView>
+            </NotFound>
+        </Router>
+    </ChildContent>
+    <ErrorContent Context="ex">
+        <div class="error-page">
+            <h1>Something went wrong</h1>
+            <p>@ex.Message</p>
+            <pre>@ex.StackTrace</pre>
+            <button @onclick="@(() => _errorBoundary?.Recover())">Recover</button>
+        </div>
+    </ErrorContent>
+</ErrorBoundary>
+
+@code {
+    private ErrorBoundary? _errorBoundary;
+}

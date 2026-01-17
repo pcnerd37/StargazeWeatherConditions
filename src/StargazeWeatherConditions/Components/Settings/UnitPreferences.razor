@@ -1,0 +1,43 @@
+@inject IPreferencesService PreferencesService
+
+<div class="unit-preferences">
+    <div class="preference-group">
+        <span class="preference-label">Temperature:</span>
+        <button class="btn-toggle @(!UseMetric ? "active" : "")" 
+                @onclick="@(() => SetMetric(false))">°F</button>
+        <button class="btn-toggle @(UseMetric ? "active" : "")" 
+                @onclick="@(() => SetMetric(true))">°C</button>
+    </div>
+    
+    <div class="preference-group">
+        <span class="preference-label">Time:</span>
+        <button class="btn-toggle @(!Use24Hour ? "active" : "")" 
+                @onclick="@(() => Set24Hour(false))">12h</button>
+        <button class="btn-toggle @(Use24Hour ? "active" : "")" 
+                @onclick="@(() => Set24Hour(true))">24h</button>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    public UserPreferences? Preferences { get; set; }
+
+    private bool UseMetric => Preferences?.UseMetricUnits ?? false;
+    private bool Use24Hour => Preferences?.Use24HourTime ?? false;
+
+    private async Task SetMetric(bool useMetric)
+    {
+        if (Preferences is null) return;
+        
+        var newPreferences = Preferences with { UseMetricUnits = useMetric };
+        await PreferencesService.SavePreferencesAsync(newPreferences);
+    }
+
+    private async Task Set24Hour(bool use24Hour)
+    {
+        if (Preferences is null) return;
+        
+        var newPreferences = Preferences with { Use24HourTime = use24Hour };
+        await PreferencesService.SavePreferencesAsync(newPreferences);
+    }
+}

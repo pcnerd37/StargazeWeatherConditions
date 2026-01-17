@@ -1,0 +1,50 @@
+<div class="recommendation-card rating-@Recommendation.Rating.ToString().ToLower()">
+    <header class="recommendation-header">
+        <div class="overall-score">
+            <span class="score-value">@Recommendation.OverallScore.ToString("F0")</span>
+            <span class="score-label">Overall</span>
+        </div>
+        <div class="rating-badge">
+            <span class="rating-icon">@GetRatingIcon()</span>
+            <span class="rating-text">@Recommendation.Rating</span>
+        </div>
+    </header>
+    
+    <div class="recommendation-summary">
+        <p>@Recommendation.Summary</p>
+    </div>
+    
+    <div class="factor-scores">
+        @foreach (var factor in Recommendation.FactorScores)
+        {
+            <ConditionScore Factor="@factor" />
+        }
+    </div>
+    
+    <div class="target-scores">
+        <div class="target-score dso">
+            <span class="target-icon">🌌</span>
+            <span class="target-label">Deep Sky</span>
+            <span class="target-value">@Recommendation.DsoScore.ToString("F0")</span>
+        </div>
+        <div class="target-score planetary">
+            <span class="target-icon">🪐</span>
+            <span class="target-label">Planetary</span>
+            <span class="target-value">@Recommendation.PlanetaryScore.ToString("F0")</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required Recommendation Recommendation { get; set; }
+
+    private string GetRatingIcon() => Recommendation.Rating switch
+    {
+        Rating.Excellent => "⭐",
+        Rating.Good => "👍",
+        Rating.Fair => "🌤️",
+        Rating.Poor => "☁️",
+        _ => "❓"
+    };
+}

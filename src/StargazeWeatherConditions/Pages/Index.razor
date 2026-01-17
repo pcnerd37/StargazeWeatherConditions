@@ -1,0 +1,283 @@
+@page "/"
+@inject IWeatherApiService WeatherApiService
+@inject ILocationService LocationService
+@inject IRecommendationService RecommendationService
+@inject ILightPollutionService LightPollutionService
+@inject ICacheService CacheService
+
+<PageTitle>StarGaze Weather Conditions</PageTitle>
+
+<div class="home-page">
+    <section class="search-section">
+        <h1 class="app-title">🌟 StarGaze Weather</h1>
+        <p class="app-subtitle">Find the best nights for stargazing</p>
+        
+        <LocationSearch OnLocationSelected="@OnLocationSelected" />
+    </section>
+
+    @if (_isLoading)
+    {
+        <LoadingIndicator Message="Loading forecast..." />
+    }
+    else if (_error is not null)
+    {
+        <ErrorDisplay 
+            Title="@_error.Title" 
+            Message="@_error.Message" 
+            OnRetry="@RefreshForecast" />
+    }
+    else if (_forecast is not null && _currentLocation is not null)
+    {
+        <section class="forecast-section">
+            @if (_isStaleData)
+            {
+                <StaleDataWarning 
+                    CacheTimestamp="@_cacheTimestamp" 
+                    OnRefresh="@RefreshForecast" />
+            }
+            
+            <div class="location-header">
+                <LocationDisplay Location="@_currentLocation" ShowCoordinates="true" />
+            </div>
+
+            @foreach (var forecastDay in _forecast.ForecastDays)
+            {
+                var nightHours = GetNightHours(forecastDay);
+                var twilightTimes = CalculateTwilightTimes(forecastDay);
+                var recommendation = GetRecommendation(forecastDay, nightHours);
+
+                <NightForecastPanel 
+                    Date="@forecastDay.Date"
+                    NightHours="@nightHours"
+                    Astronomy="@forecastDay.Astronomy"
+                    TwilightTimes="@twilightTimes"
+                    Recommendation="@recommendation" />
+            }
+        </section>
+    }
+    else
+    {
+        <section class="welcome-section">
+            <div class="welcome-content">
+                <div class="welcome-icon">🔭</div>
+                <h2>Welcome to StarGaze</h2>
+                <p>Enter a location above to get stargazing weather conditions for the next few nights.</p>
+                <ul class="feature-list">
+                    <li>🌙 Hourly cloud cover and visibility forecasts</li>
+                    <li>🌟 Twilight times and optimal viewing windows</li>
+                    <li>🌕 Moon phase and illumination data</li>
+                    <li>📊 Overall stargazing condition ratings</li>
+                </ul>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private WeatherForecast? _forecast;
+    private LocationInfo? _currentLocation;
+    private LightPollutionData? _lightPollutionData;
+    private bool _isLoading;
+    private bool _isStaleData;
+    private DateTime _cacheTimestamp;
+    private ErrorInfo? _error;
+    private Dictionary<DateOnly, Recommendation> _recommendations = new();
+    private bool _initialized;
+
+    private record ErrorInfo(string Title, string Message);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            try
+            {
+                // Try to load last location and its cached forecast
+                var lastLocation = await LocationService.GetLastLocationAsync();
+                if (lastLocation is not null)
+                {
+                    _currentLocation = lastLocation;
+                    await LoadForecast();
+                    StateHasChanged();
+                }
+            }
+            catch
+            {
+                // Ignore errors during initialization
+            }
+        }
+    }
+
+    private async Task OnLocationSelected(LocationInfo location)
+    {
+        _currentLocation = location;
+        _error = null;
+        await LoadForecast();
+    }
+
+    private async Task LoadForecast()
+    {
+        if (_currentLocation is null) return;
+
+        _isLoading = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            // Try to get light pollution data
+            _lightPollutionData = await LightPollutionService.GetLightPollutionAsync(
+                _currentLocation.Latitude, 
+                _currentLocation.Longitude);
+
+            // Get weather forecast
+            var cacheKey = $"forecast_{_currentLocation.Latitude:F4}_{_currentLocation.Longitude:F4}";
+            var cacheResult = await CacheService.GetWithMetadataAsync<WeatherForecast>(cacheKey);
+
+            if (cacheResult.IsHit && cacheResult.Data is not null)
+            {
+                _forecast = cacheResult.Data;
+                _isStaleData = cacheResult.IsStale;
+                _cacheTimestamp = cacheResult.Timestamp;
+
+                // If stale but still same-day, show with warning
+                // If different day, try to refresh
+                if (_isStaleData && _forecast.ForecastDays.FirstOrDefault()?.Date != DateOnly.FromDateTime(DateTime.Now))
+                {
+                    await RefreshForecast();
+                    return;
+                }
+            }
+            else
+            {
+                await RefreshForecast();
+                return;
+            }
+
+            CalculateAllRecommendations();
+        }
+        catch (Exception)
+        {
+            _error = new ErrorInfo("Failed to load forecast", 
+                "Unable to get weather data. Please check your connection and try again.");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task RefreshForecast()
+    {
+        if (_currentLocation is null) return;
+
+        _isLoading = true;
+        _isStaleData = false;
+        StateHasChanged();
+
+        try
+        {
+            var locationQuery = $"{_currentLocation.Latitude},{_currentLocation.Longitude}";
+            var forecast = await WeatherApiService.GetForecastAsync(locationQuery);
+
+            if (forecast is not null)
+            {
+                _forecast = forecast;
+                _error = null;
+
+                // Cache the new forecast
+                var cacheKey = $"forecast_{_currentLocation.Latitude:F4}_{_currentLocation.Longitude:F4}";
+                await CacheService.SetAsync(cacheKey, forecast, TimeSpan.FromHours(2));
+                _cacheTimestamp = DateTime.Now;
+
+                CalculateAllRecommendations();
+            }
+            else
+            {
+                _error = new ErrorInfo("No forecast available", 
+                    "Weather data is not available for this location.");
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _error = new ErrorInfo("Connection error", 
+                "Unable to connect to weather service. Please check your internet connection.");
+        }
+        catch (Exception)
+        {
+            _error = new ErrorInfo("Unexpected error", 
+                "Something went wrong. Please try again later.");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private IReadOnlyList<HourlyCondition> GetNightHours(ForecastDay day)
+    {
+        // Filter to nighttime hours (6 PM to 6 AM next day)
+        return day.HourlyConditions
+            .Where(h => !h.IsDay || h.Time.Hour >= 18 || h.Time.Hour < 6)
+            .ToList();
+    }
+
+    private TwilightTimes? CalculateTwilightTimes(ForecastDay day)
+    {
+        if (_currentLocation is null) return null;
+
+        var calculator = new TwilightCalculator();
+        return calculator.Calculate(
+            _currentLocation.Latitude,
+            _currentLocation.Longitude,
+            day.Date,
+            day.Astronomy.Sunset,
+            day.Astronomy.Sunrise);
+    }
+
+    private void CalculateAllRecommendations()
+    {
+        _recommendations.Clear();
+
+        if (_forecast is null) return;
+
+        foreach (var day in _forecast.ForecastDays)
+        {
+            var nightHours = GetNightHours(day);
+            if (nightHours.Any())
+            {
+                // Use the hour with best conditions for the main recommendation
+                var bestHour = nightHours
+                    .OrderBy(h => h.CloudCoverPercent)
+                    .ThenByDescending(h => h.VisibilityKm)
+                    .First();
+
+                var recommendation = RecommendationService.CalculateRecommendation(
+                    bestHour, 
+                    day.Astronomy, 
+                    _lightPollutionData);
+                
+                _recommendations[day.Date] = recommendation;
+            }
+        }
+    }
+
+    private Recommendation? GetRecommendation(ForecastDay day, IReadOnlyList<HourlyCondition> nightHours)
+    {
+        if (_recommendations.TryGetValue(day.Date, out var recommendation))
+        {
+            return recommendation;
+        }
+
+        if (!nightHours.Any()) return null;
+
+        // Calculate on-demand if not already cached
+        var bestHour = nightHours
+            .OrderBy(h => h.CloudCoverPercent)
+            .ThenByDescending(h => h.VisibilityKm)
+            .First();
+
+        return RecommendationService.CalculateRecommendation(bestHour, day.Astronomy, _lightPollutionData);
+    }
+}
