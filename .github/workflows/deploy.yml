@@ -32,7 +32,6 @@ jobs:
       
       - name: Restore dependencies
         run: dotnet restore
-        working-directory: ./src/StargazeWeatherConditions
       
       - name: Inject API Key
         run: |
@@ -40,12 +39,9 @@ jobs:
       
       - name: Build
         run: dotnet build --configuration Release --no-restore
-        working-directory: ./src/StargazeWeatherConditions
       
       - name: Run Tests
         run: dotnet test --configuration Release --no-build --verbosity normal
-        working-directory: ./tests/StargazeWeatherConditions.Tests
-        continue-on-error: true
       
       - name: Publish
         run: dotnet publish --configuration Release --output ./publish
